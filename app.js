@@ -12,7 +12,12 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Seguridad: Helmet para headers seguros (centralizado)
 app.use(helmet());
-app.use(cors());
+// Acepta cualquier origen, método y header
+app.use(cors({
+  origin: '*', // ⚠️ Permite todos los orígenes
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+}));
 app.use(express.json());
 
 // Rutas
