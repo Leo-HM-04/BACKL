@@ -109,7 +109,13 @@ exports.createViatico = async (req, res) => {
     }
 
     console.log('📝 Registrando acción...');
-    await registrarAccion({ req, accion: 'crear', entidad: 'viatico', entidadId: viatico.id_viatico });
+    await registrarAccion({ 
+      req, 
+      accion: 'creó', 
+      entidad: 'viático', 
+      entidadId: viatico.id_viatico,
+      detalles: `Folio: ${viatico.folio}, Monto: $${viatico.monto?.toLocaleString() || 'N/A'}`
+    });
     console.log('✅ Acción registrada');
 
     console.log('🎉 Viático creado exitosamente');
@@ -329,11 +335,17 @@ exports.aprobarViatico = async (req, res) => {
     if (viatico && viatico.id_usuario) {
       await NotificacionService.crearNotificacion({
         id_usuario: viatico.id_usuario,
-        mensaje: `Tu viático folio ${viatico.folio} fue <b>aprobado</b>.`,
+        mensaje: `✅ Tu viático folio ${viatico.folio} por $${viatico.monto?.toLocaleString() || 'N/A'} fue aprobado por ${req.user.nombre || 'Aprobador'}`,
         enviarWebSocket: true
       });
     }
-    await registrarAccion({ req, accion: 'aprobar', entidad: 'viatico', entidadId: id });
+    await registrarAccion({ 
+      req, 
+      accion: 'aprobó', 
+      entidad: 'viático', 
+      entidadId: id, 
+      detalles: `Folio: ${viatico?.folio}, Monto: $${viatico?.monto?.toLocaleString() || 'N/A'}` 
+    });
     res.json({ message: 'Viático aprobado correctamente' });
   } catch (err) {
     console.error(err);
@@ -356,11 +368,17 @@ exports.rechazarViatico = async (req, res) => {
     if (viatico && viatico.id_usuario) {
       await NotificacionService.crearNotificacion({
         id_usuario: viatico.id_usuario,
-        mensaje: `Tu viático folio ${viatico.folio} fue <b>rechazado</b>.`,
+        mensaje: `❌ Tu viático folio ${viatico.folio} por $${viatico.monto?.toLocaleString() || 'N/A'} fue rechazado por ${req.user.nombre || 'Aprobador'}`,
         enviarWebSocket: true
       });
     }
-    await registrarAccion({ req, accion: 'rechazar', entidad: 'viatico', entidadId: id });
+    await registrarAccion({ 
+      req, 
+      accion: 'rechazó', 
+      entidad: 'viático', 
+      entidadId: id, 
+      detalles: `Folio: ${viatico?.folio}, Monto: $${viatico?.monto?.toLocaleString() || 'N/A'}` 
+    });
     res.json({ message: 'Viático rechazado correctamente' });
   } catch (err) {
     console.error(err);
@@ -383,12 +401,18 @@ exports.aprobarLoteViaticos = async (req, res) => {
       if (viatico && viatico.id_usuario) {
         await NotificacionService.crearNotificacion({
           id_usuario: viatico.id_usuario,
-          mensaje: `Tu viático folio ${viatico.folio} fue <b>aprobado</b>.`,
+          mensaje: `✅ Tu viático folio ${viatico.folio} por $${viatico.monto?.toLocaleString() || 'N/A'} fue aprobado por ${req.user.nombre || 'Aprobador'}`,
           enviarWebSocket: true
         });
       }
     }
-    await registrarAccion({ req, accion: 'aprobar-lote', entidad: 'viatico', entidadId: ids.join(',') });
+    await registrarAccion({ 
+      req, 
+      accion: 'aprobó en lote', 
+      entidad: 'viáticos', 
+      entidadId: ids.join(','), 
+      detalles: `${ids.length} viáticos aprobados` 
+    });
     res.json({ message: `Se aprobaron ${filas} viáticos` });
   } catch (err) {
     console.error(err);
@@ -411,12 +435,18 @@ exports.rechazarLoteViaticos = async (req, res) => {
       if (viatico && viatico.id_usuario) {
         await NotificacionService.crearNotificacion({
           id_usuario: viatico.id_usuario,
-          mensaje: `Tu viático folio ${viatico.folio} fue <b>rechazado</b>.`,
+          mensaje: `❌ Tu viático folio ${viatico.folio} por $${viatico.monto?.toLocaleString() || 'N/A'} fue rechazado por ${req.user.nombre || 'Aprobador'}`,
           enviarWebSocket: true
         });
       }
     }
-    await registrarAccion({ req, accion: 'rechazar-lote', entidad: 'viatico', entidadId: ids.join(',') });
+    await registrarAccion({ 
+      req, 
+      accion: 'rechazó en lote', 
+      entidad: 'viáticos', 
+      entidadId: ids.join(','), 
+      detalles: `${ids.length} viáticos rechazados` 
+    });
     res.json({ message: `Se rechazaron ${filas} viáticos` });
   } catch (err) {
     console.error(err);
@@ -442,7 +472,13 @@ exports.marcarComoPagado = async (req, res) => {
       const estadoActual = rows[0]?.estado;
       return res.status(404).json({ error: `No se pudo marcar como pagado. Estado actual: ${estadoActual}` });
     }
-    await registrarAccion({ req, accion: 'pagar', entidad: 'viatico', entidadId: id });
+    await registrarAccion({ 
+      req, 
+      accion: 'pagó', 
+      entidad: 'viático', 
+      entidadId: id,
+      detalles: `Viático marcado como pagado`
+    });
     res.json({ message: "Viático marcado como pagado" });
   } catch (err) {
     console.error(err);

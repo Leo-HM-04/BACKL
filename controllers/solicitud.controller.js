@@ -1,9 +1,10 @@
 /* ──────────────────────────────────────────────────────────────
-   Controlador de Solicitudes – Con notificaciones persistentes
+   Controlador de Solicitudes – Con notificaciones mejoradas
    ────────────────────────────────────────────────────────────── */
 
 const SolicitudModel = require("../models/solicitud.model");
 const NotificacionService = require("../services/notificacionesService");
+const NotificacionServiceMejorado = require("../services/notificacionesServiceMejorado");
 const pool = require("../db/connection");
 
 // ──────────────────────── Obtener listados ────────────────────────
@@ -148,10 +149,11 @@ exports.createSolicitud = async (req, res) => {
     const [aprobadores] = await pool.query(
       "SELECT id_usuario, email FROM usuarios WHERE rol = 'aprobador'"
     );
+    const { nombre: nombreSolicitante } = req.user;
     for (const ap of aprobadores) {
       await NotificacionService.crearNotificacion({
         id_usuario: ap.id_usuario,
-        mensaje: "📥 Nueva solicitud pendiente de aprobación.",
+        mensaje: `📥 Nueva solicitud de ${nombreSolicitante || 'Usuario'} por $${monto.toLocaleString()} - ${concepto}`,
         correo: ap.email,
       });
     }
@@ -166,16 +168,17 @@ exports.createSolicitud = async (req, res) => {
     });
     await NotificacionService.crearNotificacion({
       id_usuario,
-      mensaje: "¡Tu solicitud fue registrada exitosamente!",
+      mensaje: `✅ Tu solicitud por $${monto.toLocaleString()} fue registrada exitosamente`,
       correo: solicitante[0]?.email
     });
-    // Registrar acción
+    // Registrar acción con más detalles
     await registrarAccion({
       req,
       accion: 'creó',
       entidad: 'solicitud',
       entidadId: null,
-      mensajeExtra: ''
+      detalles: `Monto: $${monto.toLocaleString()}, Concepto: ${concepto}`,
+      mensajeExtra: `Departamento: ${departamento}`
     });
     res.status(201).json({ message: "Solicitud creada exitosamente" });
   } catch (err) {
@@ -271,7 +274,7 @@ exports.actualizarEstado = async (req, res) => {
       // 1) Solicitante (notificación in-app)
       await NotificacionService.crearNotificacion({
         id_usuario: idSolicitante,
-        mensaje: "✅ Tu solicitud fue autorizada.",
+        mensaje: `✅ Tu solicitud por $${monto.toLocaleString()} fue aprobada por ${req.user.nombre || 'Aprobador'}`,
         correo: email,
       });
       // 2) Pagadores
@@ -281,7 +284,7 @@ exports.actualizarEstado = async (req, res) => {
       for (const pg of pagadores) {
         await NotificacionService.crearNotificacion({
           id_usuario: pg.id_usuario,
-          mensaje: "📝 Nueva solicitud autorizada para pago.",
+          mensaje: `� Nueva solicitud autorizada: $${monto.toLocaleString()} - ${concepto} (Solicitante: ${nombre})`,
           correo: pg.email,
         });
       }
@@ -289,7 +292,7 @@ exports.actualizarEstado = async (req, res) => {
       if (aprobadorRows.length > 0) {
         await NotificacionService.crearNotificacion({
           id_usuario: id_aprobador,
-          mensaje: `✅ Autorizaste la solicitud (ID: ${id}) correctamente.`,
+          mensaje: `✅ Aprobaste solicitud #${id} por $${monto.toLocaleString()} de ${nombre}`,
           correo: aprobadorRows[0].email
         });
       }
@@ -327,26 +330,27 @@ exports.actualizarEstado = async (req, res) => {
       // Rechazada → solo solicitante (notificación in-app)
       await NotificacionService.crearNotificacion({
         id_usuario: idSolicitante,
-        mensaje: "❌ Tu solicitud fue rechazada.",
+        mensaje: `❌ Tu solicitud por $${monto.toLocaleString()} fue rechazada por ${req.user.nombre || 'Aprobador'}`,
         correo: email,
       });
       // Aprobador (notificación in-app)
       if (aprobadorRows.length > 0) {
         await NotificacionService.crearNotificacion({
           id_usuario: id_aprobador,
-          mensaje: `❌ Rechazaste la solicitud (ID: ${id}).`,
+          mensaje: `❌ Rechazaste solicitud #${id} por $${monto.toLocaleString()} de ${nombre}`,
           correo: aprobadorRows[0].email
         });
       }
     }
 
-    // Registrar acción y notificar admin (solo registro, sin correo)
+    // Registrar acción con más detalles
     await registrarAccion({
       req,
-      accion: 'actualizó',
+      accion: estado === 'autorizada' ? 'aprobó' : 'rechazó',
       entidad: 'solicitud',
       entidadId: id,
-      mensajeExtra: `Nuevo estado: ${estado}`
+      detalles: `Monto: $${monto.toLocaleString()}, Solicitante: ${nombre}`,
+      mensajeExtra: `Estado: ${estado}`
     });
 
     res.json({ message: "Estado actualizado correctamente" });
@@ -448,7 +452,7 @@ exports.marcarComoPagada = async (req, res) => {
       // Solicitante (notificación in-app)
       await NotificacionService.crearNotificacion({
         id_usuario: idSolicitante,
-        mensaje: "💸 Tu solicitud ha sido pagada.",
+        mensaje: `💸 Tu solicitud por $${monto.toLocaleString()} ha sido pagada por ${req.user.nombre || 'Pagador'}`,
         correo: emailSolic,
       });
 
@@ -456,7 +460,7 @@ exports.marcarComoPagada = async (req, res) => {
       if (id_aprobador && emailAprob) {
         await NotificacionService.crearNotificacion({
           id_usuario: id_aprobador,
-          mensaje: "💸 Se pagó la solicitud que aprobaste.",
+          mensaje: `💸 Solicitud #${id} que aprobaste por $${monto.toLocaleString()} fue pagada`,
           correo: emailAprob,
         });
       }
@@ -465,7 +469,7 @@ exports.marcarComoPagada = async (req, res) => {
       const [pagador] = await pool.query("SELECT email, nombre FROM usuarios WHERE id_usuario = ?", [id_pagador]);
       await NotificacionService.crearNotificacion({
         id_usuario: id_pagador,
-        mensaje: `✅ Marcaste como pagada la solicitud (ID: ${id}).`,
+        mensaje: `✅ Pagaste solicitud #${id} por $${monto.toLocaleString()} a ${nombreSolic}`,
         correo: pagador[0]?.email
       });
     }
@@ -539,7 +543,8 @@ exports.deleteSolicitud = async (req, res) => {
       accion: 'eliminó',
       entidad: 'solicitud',
       entidadId: id,
-      mensajeExtra: ''
+      detalles: sol[0] ? `Monto: $${sol[0].monto?.toLocaleString()}, Solicitante: ${sol[0].nombre}` : 'Solicitud eliminada',
+      mensajeExtra: 'Solicitud eliminada por administrador'
     });
     res.json({ message: "Solicitud eliminada correctamente" });
   } catch (err) {

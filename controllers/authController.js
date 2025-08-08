@@ -167,6 +167,28 @@ exports.obtenerHistorial = async (req, res) => {
   }
 };
 
+// Obtener información del usuario autenticado
+exports.me = async (req, res) => {
+  try {
+    const id_usuario = req.user?.id_usuario;
+    if (!id_usuario) return res.status(401).json({ message: 'Usuario no autenticado' });
+    
+    const [rows] = await pool.query(
+      'SELECT id_usuario, nombre, email, rol, verificado, activo FROM usuarios WHERE id_usuario = ?', 
+      [id_usuario]
+    );
+    
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+    
+    res.json(rows[0]);
+  } catch (error) {
+    console.error('Error en me:', error);
+    res.status(500).json({ message: 'Error al obtener información del usuario' });
+  }
+};
+
 // Cerrar sesión: marcar usuario como inactivo
 exports.logout = async (req, res) => {
   try {

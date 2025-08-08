@@ -70,10 +70,11 @@ exports.crearRecurrente = async (req, res) => {
     const [aprobadores] = await pool.query(
       "SELECT id_usuario, email FROM usuarios WHERE rol = 'aprobador'"
     );
+    const { nombre: nombreSolicitante } = req.user;
     for (const ap of aprobadores) {
       await NotificacionService.crearNotificacion({
         id_usuario: ap.id_usuario,
-        mensaje: "📋 Nueva plantilla recurrente pendiente de aprobación.",
+        mensaje: `📋 Nueva plantilla recurrente de ${nombreSolicitante || 'Usuario'} por $${monto.toLocaleString()} - ${concepto}`,
         correo: ap.email,
       });
     }
@@ -89,7 +90,7 @@ exports.crearRecurrente = async (req, res) => {
     });
     await NotificacionService.crearNotificacion({
       id_usuario,
-      mensaje: "¡Tu plantilla recurrente fue registrada exitosamente!",
+      mensaje: `✅ Tu plantilla recurrente por $${monto.toLocaleString()} fue registrada exitosamente`,
     });
     res.status(201).json({ message: "Plantilla recurrente creada correctamente" });
   } catch (err) {
@@ -189,7 +190,7 @@ exports.marcarComoPagadaRecurrente = async (req, res) => {
       // Solicitante (notificación in-app)
       await NotificacionService.crearNotificacion({
         id_usuario: idSolicitante,
-        mensaje: "💸 Tu pago recurrente ha sido marcado como pagado.",
+        mensaje: `💸 Tu pago recurrente por $${monto.toLocaleString()} ha sido marcado como pagado por ${req.user.nombre || 'Pagador'}`,
         correo: emailSolic,
       });
 
@@ -197,7 +198,7 @@ exports.marcarComoPagadaRecurrente = async (req, res) => {
       if (id_aprobador && emailAprob) {
         await NotificacionService.crearNotificacion({
           id_usuario: id_aprobador,
-          mensaje: "💸 Se pagó la plantilla recurrente que aprobaste.",
+          mensaje: `💸 Plantilla recurrente #${id} que aprobaste por $${monto.toLocaleString()} fue pagada`,
           correo: emailAprob,
         });
       }
@@ -206,7 +207,7 @@ exports.marcarComoPagadaRecurrente = async (req, res) => {
       const [pagador] = await pool.query("SELECT email, nombre FROM usuarios WHERE id_usuario = ?", [id_pagador]);
       await NotificacionService.crearNotificacion({
         id_usuario: id_pagador,
-        mensaje: `✅ Marcaste como pagada la plantilla recurrente (ID: ${id}).`,
+        mensaje: `✅ Pagaste plantilla recurrente #${id} por $${monto.toLocaleString()} a ${nombreSolic}`,
         correo: pagador[0]?.email
       });
     }
@@ -330,7 +331,7 @@ exports.aprobarRecurrente = async (req, res) => {
     if (solicitanteRows.length > 0) {
       await NotificacionService.crearNotificacion({
         id_usuario: recurrente.id_usuario,
-        mensaje: "✅ Tu plantilla recurrente fue aprobada.",
+        mensaje: `✅ Tu plantilla recurrente por $${recurrente.monto.toLocaleString()} fue aprobada por ${req.user.nombre || 'Aprobador'}`,
         correo: solicitanteRows[0].email,
       });
     }
@@ -341,7 +342,7 @@ exports.aprobarRecurrente = async (req, res) => {
     for (const pg of pagadores) {
       await NotificacionService.crearNotificacion({
         id_usuario: pg.id_usuario,
-        mensaje: "📝 Nueva plantilla recurrente aprobada: solicitudes futuras listas para pago.",
+        mensaje: `� Nueva plantilla recurrente aprobada: $${recurrente.monto.toLocaleString()} - ${recurrente.concepto} (${solicitanteRows[0]?.nombre})`,
         correo: pg.email,
       });
     }
@@ -422,7 +423,7 @@ exports.rechazarRecurrente = async (req, res) => {
     if (solicitanteRows.length > 0) {
       await NotificacionService.crearNotificacion({
         id_usuario: recurrente.id_usuario,
-        mensaje: "❌ Tu plantilla recurrente fue rechazada.",
+        mensaje: `❌ Tu plantilla recurrente por $${recurrente.monto.toLocaleString()} fue rechazada por ${req.user.nombre || 'Aprobador'}`,
         correo: solicitanteRows[0].email,
       });
     }

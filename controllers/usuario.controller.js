@@ -76,7 +76,7 @@ const createUsuario = async (req, res) => {
     const NotificacionService = require('../services/notificacionesService');
     await NotificacionService.crearNotificacion({
       id_usuario: id,
-      mensaje: `🎉 ¡Bienvenido/a ${nombre}! Tu cuenta ha sido creada exitosamente.`,
+      mensaje: `🎉 ¡Bienvenido/a ${nombre}! Tu cuenta ${rol} ha sido creada exitosamente en Bechapra.`,
       enviarCorreo: false
     });
 
@@ -88,7 +88,7 @@ const createUsuario = async (req, res) => {
       // Notificación persistente al admin
       await NotificacionService.crearNotificacion({
         id_usuario: admin.id_usuario,
-        mensaje: `👤 Se ha creado un nuevo usuario:<br><b>Nombre:</b> ${nombre}<br><b>Email:</b> ${email}<br><b>Rol:</b> ${rol}`,
+        mensaje: `👤 Nuevo usuario ${rol} creado: ${nombre} (${email}) por ${req.user?.nombre || 'Admin'}`,
         enviarCorreo: true,
         correo: admin.email
       });
@@ -108,7 +108,8 @@ const createUsuario = async (req, res) => {
       accion: 'creó',
       entidad: 'usuario',
       entidadId: id,
-      mensajeExtra: `Nombre: ${nombre}, Email: ${email}, Rol: ${rol}`
+      detalles: `${rol}: ${nombre} (${email})`,
+      mensajeExtra: `Usuario creado exitosamente`
     });
 
     res.status(201).json({ id, nombre, email, rol, mensaje: 'Usuario creado. Se ha enviado un correo de bienvenida.' });
